@@ -7,9 +7,12 @@ import struct #Interpret strings as packed binary data
 from random import *
 import os
 import matplotlib.pyplot as plt
+
+
+
 from scipy.fftpack import rfft, irfft, rfftfreq
 import sys
-import cPickle as pk
+#import cPickle as pk
 
 
 from shared import *
@@ -86,149 +89,54 @@ def FindGain(time_unix,antenna):
     return(g0*(1.-h)+g1*h) #dB
 
 
+
 #############################
 #############################
 
+def AveragedGain():
 
-necfolders = listdir(SIMU_DATA_PATH)
-#print(necfolders)
-cpt=0
+    antennas=listdir(GAIN_DATA_PATH)
+    antennas=np.asarray(antennas)
+    antennas=antennas[antennas!='run-times.py']
+    print(antennas)
+    #gain=np.zeros(len(antennas))
+    ant=np.zeros(len(antennas),dtype=int)
+    for a in range(len(antennas)):
+        ant[a]=antennas[a][5:8]
+        '''avgain=[]
+        with open(GAIN_DATA_PATH+antennas[a], "rb") as f:
+            data = pk.load(f)
+        for i in range(len(data)):        
+            avgain.append(np.mean(data[i][-1]))
+        gain[a]=np.mean(avgain)
 
-
-transient=np.zeros((Ndata*2,ib)) #transient for dataset
-onlysimu=np.zeros((Ndata,ib)) #simu only for dataset (same simu as in simunoise)
-noise=np.zeros((Ndata,ib))  #noise for simu
-simunoise=np.zeros((Ndata,ib)) #simu and noise for dataset
-
-
-tf=np.zeros((Ndata,ib))
-tunix=[]
-#gain=[]
-#gain=np.zeros((Ndata))+108.5
-
-
-
-
-
-############ open raw files
-
-
-datafilename=RAW_DATA_PATH+run+"_A0"+ID+"_data.bin"
-timefilename=RAW_DATA_PATH+run+"_A0"+ID+"_time.bin"
-
-
-#if we look for gain at accurate unix time
-'''with open(timefilename,'rb') as ft:
-    content=ft.read()                        
-i=0
-while i<Ndata*16:
-    tunix.append(struct.unpack('I'*1,content[i:i+4])[0])
-    gain.append(FindGain(tunix[-1],ID))
-    i=i+16'''
-    
-i=0
-with open(datafilename,'rb') as fd:
-    while i<Ndata:
-        content=fd.read(ib)
-        noise[i]=struct.unpack('B'*ib,content)
-        print(np.mean(noise[i]), np.std(noise[i][0:400]))
-	if np.std(noise[i][0:400])<10:
-      	    i=i+1
-
-    #we want high and low std noise:
-    i=0
-    while i<Ndata:
-        content=fd.read(ib)
-        transient[i]=struct.unpack('B'*ib,content)
-        print(np.mean(transient[i]), np.std(transient[i]))
-	if np.std(transient[i])<10:
-      	    i=i+1
-    while i<Ndata*2:
-        content=fd.read(ib)
-        transient[i]=struct.unpack('B'*ib,content)
-        print(np.mean(transient[i]), np.std(transient[i]))
-	if np.std(transient[i])>10:
-      	    i=i+1	    	    
-
-
-
-
-'''
-noisetest=noise[0][0:400]
-noisetestrand=np.zeros(400)
-for i in range(0, len(noisetestrand)):
-    noisetestrand[i]=noisetest[random()*399]
-    
-plt.plot(noisetest)
-plt.plot(noisetestrand)
-plt.show()
-
-
-h,b=np.histogram(noisetest, bins=10, range=None, normed=None, weights=None, density=None)
-hrand,brand=np.histogram(noisetestrand, bins=10, range=None, normed=None, weights=None, density=None)
-
-plt.plot(b[:-1],h)
-plt.plot(brand[:-1],hrand)
-plt.show()
-
-
-for i in range(1,11):
-    noisetestrandshift=np.zeros(400)
-    noisetestrandshift=noisetestrand[i:]-noisetestrand[0:-i]
-
-    plt.plot(noisetestrandshift)
-    plt.show()
-
-    h,b=np.histogram(noisetestrandshift, bins=10, range=None, normed=None, weights=None, density=None)
-
-    plt.plot(b[:-1],h)
-    plt.show()
-'''
-
-
-
-
-
-for necfolder in necfolders:
-
-
-
-
-    if cpt>=Ndata:
-        break
-    txtfile=SIMU_DATA_PATH+necfolder+'/a'+str(ID)+'_efield.txt'
-    txtfile2=SIMU_DATA_PATH+necfolder+'/a'+str(ID)+'_ew.txt'
-    print(txtfile)
-    print(txtfile2)
-    if os.path.isfile(txtfile)==0 or os.path.isfile(txtfile2)==0:
-    	continue
-    
-    display=0
-    if necfolder=="15392595051_66_198_-104_227":
-        display=1
-	
-    et=[]
-    ex=[]
-    ey=[]
-    ez=[]
-    with open (txtfile, 'r') as file :
-        txt = file.read()
-        txt=txt.split('\n')
+    with open(SPS_PATH+'averagedgain.txt','w') as f:
+        for a in range(len(antennas)):
+            f.write(str(ant[a])+' '+str(gain[a])+'\n')'''
+ 
+    return ant
         
-    for l in range(0,len(txt)-1):
-        line=txt[l].split(' ')
-        #print(line)
-        linegoods=[]
-        for k,elt in enumerate(line):
-            if elt!='':
-                linegoods.append(elt)
-        #print(linegoods)
-        et.append(float(linegoods[0])*1e-6) #to convert museconds to seconds
-        ex.append(float(linegoods[1])) #muV/m
-        ey.append(float(linegoods[2]))
-        ez.append(float(linegoods[3]))
 
-    with open (txtfile2, 'r') as file :
+
+
+
+
+
+#############################
+#############################
+
+
+
+def Treatment(txtfile,noise):
+
+
+    onlysimu=np.zeros((ib)) #simu only for dataset (same simu as in simunoise)
+    simunoise=np.zeros((ib)) #simu and noise for dataset
+
+    display=0
+
+
+    with open (txtfile, 'r') as file :
         txt = file.read()
         txt=txt.split('\n')
         t=txt[0].split(' ') #already in seconds
@@ -242,52 +150,24 @@ for necfolder in necfolders:
             vr[k]=float(vr[k])
             vt[k]=float(vt[k])
             vp[k]=float(vp[k])
-            
-    #plt.plot(ex,'red')         
-    #print((t[1]-t[0]),(et[1]-et[0]))   # 1e-9sec
+
+
     if display:
         plt.plot(vs,'g')
         plt.show()
-    
 
-        #print(et[0:100])
-    tstep=np.mean(np.diff(et))
-    #print('tsep=',tstep)
-    # to make et and vs the same size
-    for k in range(len(ex),len(vs)):
-        et.append(et[k-1]+tstep)
-	
-	
-    print(len(vs),int(round(TSAMPLING/tstep))*ib)
+    tstep=np.mean(np.diff(t))
+    #print(len(vs),int(round(TSAMPLING/tstep))*ib)
     vs2=np.zeros(int(round(TSAMPLING/tstep))*ib)
     vs2[int(len(vs2)/2):int(len(vs2)/2)+len(vs)]=vs
-    
+
     if display:
         plt.plot(vs2)
         plt.show()
 
     vs=vs2
-	
 
-    '''#print(et[len(ex)-1:len(ex)+100])            
-    #print('et step',np.mean(np.diff(et)))
-    tstep=np.mean(np.diff(t)) #same for et and t
-    #print('tsep=',tstep)
-    vs=np.asarray(vs)
-    et=np.asarray(et)
-    shift=500
-    vsshift=np.zeros(len(vs))
-    etshift=np.zeros(len(et))
-    vsshift[shift:len(vsshift)]=vs[0:len(vs)-shift] 
-    etshift[shift:len(etshift)]=et[0:len(et)-shift]
-    for k in range(0,shift):
-        etshift[k]=et[0]-(shift-k)*tstep
-    vs=vsshift
-    et=etshift
-    #print(et[shift-100:shift+1])
-    if display:
-        plt.plot(vs)
-        plt.show()'''
+
 
     #signal filtration 
     F=rfftfreq(len(vs))/tstep #len(vs) points between 0 and 1/2tstep=0.5e10Hz
@@ -299,38 +179,24 @@ for necfolder in necfolders:
     vs=irfft(VS)
     #print('Vs length=',len(vs), len(ex), vs[0:200], vs[len(vs)-100:len(vs)])
     if display:
-        #plt.plot(VS)
+        plt.plot(VS)
         plt.plot(vs2)
-	plt.plot(vs,'r')
+        plt.plot(vs,'r')
         plt.show()
-
-
-
-    
 
 
     #digitization
     #no meaning of vs after the time of efield (see fft tests on matlab)
     ratio=int(round(TSAMPLING/tstep))
-    print(TSAMPLING,tstep,ratio,len(vs))
+    #print(TSAMPLING,tstep,ratio,len(vs))
     ind=np.arange(0,int(np.floor(len(vs)/ratio)))*ratio
-    '''if len(ind)>524:
-	ind=ind[0:524]
-    onlysimu[cpt,500:len(ind)+500]=vs[ind]'''
-    onlysimu[cpt]=vs[ind]
-    
-    '''tf[cpt,500:len(ind)+500]=et[ind]
-    for k in range(0,500):
-	tf[cpt,k]=tf[cpt,500]-(500-k)*TSAMPLING
-    for k in range(len(ind)+500,ib):
-	tf[cpt,k]=tf[cpt,k-1]+TSAMPLING
+
+    onlysimu=vs[ind]
+
+
 
     if display:
-        plt.plot(tf[cpt],onlysimu[cpt])
-        plt.show()'''
-
-    if display:
-        plt.plot(onlysimu[cpt],'r')
+        plt.plot(onlysimu,'r')
         plt.show()
 
 
@@ -341,152 +207,362 @@ for necfolder in necfolders:
     #gain
     #print(unixtrand,ID)
     #gain=FindGain(unixtrand,ID)
-    gain=108.5
+    #gain=108.5
+    gain=110
     gain=10**(gain/20) #linear scale
-    print('GAIN!!!!!!!!!!!!!',gain)
-    onlysimu[cpt]=onlysimu[cpt]*1e-6 #pour mettre en volt
-    onlysimu[cpt]=onlysimu[cpt]*gain #pour mettre en lsb
+    #print('GAIN!!!!!!!!!!!!!',gain)
+    onlysimu=onlysimu*1e-6 #pour mettre en volt
+    onlysimu=onlysimu*gain #pour mettre en lsb
     #vf[i]=vf[i]*gain*256/3.3 
     #translation of voltage to lsb
     #vf[i]=vf[i]*1e-6/SCALE
     #SCALE deja pris en compte dans gain valentin
-    
-    
+
+
     if display:
-        plt.plot(onlysimu[cpt])
+        plt.plot(onlysimu)
         plt.show()
 
 
 
+    maxi=max(abs(onlysimu))
+    ind=np.nonzero(abs(onlysimu)==maxi)[0]
+    #print('here!!',maxi,ind,ind[0])
+
+
+
+
+    #center the maximum on the trigger time (512)
+    '''vtemp=np.zeros(ib)
+    trigtime=512
+    if ind[0]<trigtime:
+        vtemp[trigtime-ind[0]:trigtime]=simunoise[0:ind[0]]
+        vtemp[trigtime:ib]=simunoise[ind[0]:ind[0]+trigtime]
+        for k in range(0,trigtime-ind[0]):                      
+            #vtemp[k]=noisecontent[random()*399]
+            vtemp[k]=int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
+    elif ind[0]>trigtime:
+        vtemp[0:trigtime]=simunoise[ind[0]-trigtime:ind[0]]
+        vtemp[trigtime:trigtime+ib-ind[0]]=simunoise[ind[0]:ib]
+        for k in range(trigtime+ib-ind[0],ib):                      
+            #vtemp[k]=noisecontent[random()*399]
+            vtemp[k]=int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
+    elif ind[0]==trigtime:
+        vtemp=simunoise
+    simunoise=vtemp'''
+
+    vtemp=np.zeros(ib)
+    trigtime=512
+    if ind[0]<trigtime:
+        vtemp[trigtime-ind[0]:trigtime]=onlysimu[0:ind[0]]
+        vtemp[trigtime:ib]=onlysimu[ind[0]:ind[0]+trigtime]
+        #for k in range(0,trigtime-ind[0]):                      
+            #vtemp[k]=noisecontent[random()*399]
+            #vtemp[k]=np.mean(noisecontent)
+    elif ind[0]>trigtime:
+        vtemp[0:trigtime]=onlysimu[ind[0]-trigtime:ind[0]]
+        vtemp[trigtime:trigtime+ib-ind[0]]=onlysimu[ind[0]:ib]
+        #for k in range(trigtime+ib-ind[0],ib):                      
+            #vtemp[k]=noisecontent[random()*399]
+            #vtemp[k]=np.mean(noisecontent)
+    elif ind[0]==trigtime:
+        vtemp=onlysimu
+    onlysimu=vtemp
+
+
+
+
     #addnoise
-    noisecontent=noise[cpt][0:400]
-    for i in range(0, ib):
+    #noisecontent=noise[0:400]
+    simunoise=onlysimu+noise
+
+
+        #for i in range(0, ib):
         #simunoise[cpt][i]=onlysimu[cpt][i]+noisecontent[random()*399]
-	simunoise[cpt][i]=onlysimu[cpt][i]+int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
-    onlysimu[cpt]=onlysimu[cpt]+np.mean(noisecontent)
-   
-   
+        #simunoise[i]=onlysimu[i]+int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
+    onlysimu=onlysimu+np.mean(noise)
+
+
     if display:
-        plt.plot(noise[cpt])
-        plt.plot(simunoise[cpt])
-	plt.plot(onlysimu[cpt])
+        plt.plot(noise)
+        plt.plot(simunoise)
+        plt.plot(onlysimu)
         plt.show()
 
 
 
     #if saturation or null values
     for k in range(0,ib):
-        if onlysimu[cpt,k]>255:
-            onlysimu[cpt,k]=255
-        if onlysimu[cpt,k]<0:
-            onlysimu[cpt,k]=0
+        if onlysimu[k]>255:
+            onlysimu[k]=255
+        if onlysimu[k]<0:
+            onlysimu[k]=0
     for k in range(0,ib):
-        if simunoise[cpt,k]>255:
-            simunoise[cpt,k]=255
-        if simunoise[cpt,k]<0:
-            simunoise[cpt,k]=0
+        if simunoise[k]>255:
+            simunoise[k]=255
+        if simunoise[k]<0:
+            simunoise[k]=0
 
 
 
-    #maxvf=max(abs(vf[i,412:612]-meannoise)) #look for the max in a small window
-    maxi=max(abs(simunoise[cpt]))
-    #ind=np.nonzero(abs(vf[i,412:612]-meannoise)==maxvf)[0]
-    ind=np.nonzero(abs(simunoise[cpt])==maxi)[0]
-    print('here!!',maxi,ind,ind[0],tf[cpt,ind[0]])
-    #print(len(vf[i]),len(tf[i]))
-    #tefield[cpt]=tf[cpt,ind[0]]*1e9/5 #in 5 nanoseconds bins
-
-    #print(np.nonzero(tf[i]==0)[0])
+    maxi=max(abs(simunoise))
+    ind=np.nonzero(abs(simunoise)==maxi)[0]
+    #print('here!!',maxi,ind,ind[0])
 
 
 
-    #center the maximum on the trigger time (512)
-    vtemp=np.zeros(ib)
-    trigtime=512
-    if ind[0]<trigtime:
-	vtemp[trigtime-ind[0]:trigtime]=simunoise[cpt,0:ind[0]]
-	vtemp[trigtime:ib]=simunoise[cpt,ind[0]:ind[0]+trigtime]
-	for k in range(0,trigtime-ind[0]):                      
-            #vtemp[k]=noisecontent[random()*399]
-	    vtemp[k]=int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
-    elif ind[0]>trigtime:
-	vtemp[0:trigtime]=simunoise[cpt,ind[0]-trigtime:ind[0]]
-	vtemp[trigtime:trigtime+ib-ind[0]]=simunoise[cpt,ind[0]:ib]
-	for k in range(trigtime+ib-ind[0],ib):                      
-            #vtemp[k]=noisecontent[random()*399]
-	    vtemp[k]=int(round(gauss(np.mean(noisecontent),np.std(noisecontent))))
-    elif ind[0]==trigtime:
-	vtemp=simunoise[cpt]
-    simunoise[cpt]=vtemp
-    
-    vtemp=np.zeros(ib)
-    trigtime=512
-    if ind[0]<trigtime:
-	vtemp[trigtime-ind[0]:trigtime]=onlysimu[cpt,0:ind[0]]
-	vtemp[trigtime:ib]=onlysimu[cpt,ind[0]:ind[0]+trigtime]
-	for k in range(0,trigtime-ind[0]):                      
-            #vtemp[k]=noisecontent[random()*399]
-	    vtemp[k]=np.mean(noisecontent)
-    elif ind[0]>trigtime:
-	vtemp[0:trigtime]=onlysimu[cpt,ind[0]-trigtime:ind[0]]
-	vtemp[trigtime:trigtime+ib-ind[0]]=onlysimu[cpt,ind[0]:ib]
-	for k in range(trigtime+ib-ind[0],ib):                      
-            #vtemp[k]=noisecontent[random()*399]
-	    vtemp[k]=np.mean(noisecontent)
-    elif ind[0]==trigtime:
-	vtemp=onlysimu[cpt]
-    onlysimu[cpt]=vtemp
-    
-    
-    
-    
+    overthreshold=1
+    #print(maxi,np.mean(simunoise)+6*np.std(simunoise))
+    if maxi<np.mean(simunoise)+6*np.std(simunoise):
+        overthreshold=0
+        return overthreshold, onlysimu, simunoise
+
+
+
+
+
+
+
 
     if 0:
-        plt.plot(simunoise[cpt],'g')
-        #plt.plot(onlysimu[cpt])
+        plt.plot(simunoise,'g')
+        plt.plot(onlysimu)
         plt.show()
-        
+            
+    return overthreshold, onlysimu, simunoise
+            
+            
+#############################
+#############################         Main   
+
+
+'''with open('/sps/trend/slecoz/BACK/R003199_A0131_BACK_data.bin','rb') as fd:
+    while 1:
+    
+        content=fd.read(1024)
+        plt.plot(struct.unpack('B'*1024,content))
+        plt.show()'''
+
+
+
+
+ant=AveragedGain()
+
+
+binfolders  = listdir(P6_DATA_PATH)
+#energies = listdir(SIMU_DATA_PATH)
+#energies= ['2e17','3e17','5e17','7e17','1e18','2e18','3e18']
+energies= ['1e17','2e17','3e17','5e17','7e17','1e18']
+#esize=[1738, 1995, 1407, 1406, 1476, 2186, 2549]
+esize=[5471, 1738, 1995, 1407, 1406, 1476, 2186]
+
+transient=np.zeros((Ndata,ib)) #transient for dataset
+onlysimu=np.zeros((Ndata,ib)) #simu only for dataset (same simu as in simunoise)
+noise=np.zeros((Ndata,ib))  #noise for simu
+simunoise=np.zeros((Ndata,ib)) #simu and noise for dataset
+
+logsim=[]
+
+
+tunix=[]
+#gain=[]
+#gain=np.zeros((Ndata))+108.5
+
+
+
+
+
+############ open raw files
+
+
+
+cpt_sim=0
+cpt_trans=0
+cpt_noise=0
+necnum=np.zeros((len(ant),len(energies)),dtype=int)
+print(ant)
+
+for b in range(len(binfolders)):
+#for b in range():   
+
+    datafilename=P6_DATA_PATH+binfolders[b]
+    filesize=os.path.getsize(datafilename)
+    #datafilename=RAW_DATA_PATH+run+"_A0"+ID+"_data.bin"
+    #timefilename=RAW_DATA_PATH+run+"_A0"+ID+"_time.bin"
+
+
+    #if we look for gain at accurate unix time
+    '''with open(timefilename,'rb') as ft:
+        content=ft.read()                        
+    i=0
+    while i<Ndata*16:
+        tunix.append(struct.unpack('I'*1,content[i:i+4])[0])
+        gain.append(FindGain(tunix[-1],ID))
+        i=i+16'''
+
+    ID=binfolders[b][10:13]
+    run=binfolders[b][0:7]
+    print(ID,run)
+    
+    
+    backfilename=run+'_A0'+ID+'_BACK_data.bin'
+    print(backfilename)
+    if os.path.isfile(BACK_PATH+backfilename)==0:
+        pdir=subprocess.Popen('iget '+RAW_DATA_PATH+run+'/'+backfilename+' '+BACK_PATH, shell=True) 
+        pdir.wait()
+    if os.path.isfile(BACK_PATH+backfilename)==0:
+        backfilename='R003562_A0'+ID+'_BACK_data.bin'
+    print(backfilename)
 	
-    cpt=cpt+1
+    backfilename=BACK_PATH+backfilename
+    filesizeback=os.path.getsize(backfilename)
+    
+    ind=np.nonzero(ant==int(ID))[0][0]
+    #print(ind)
+    print(ant[ind],ind,necnum[ind][0])
+    
+    with open(datafilename,'rb') as fd:
+        
+        for energy in energies:
+            
+            randompos=int(random()*filesize/1024)
+            print(randompos)
+            fd.seek(1024*(randompos))
+            content=fd.read(1024)
+            transient[cpt_trans]=struct.unpack('B'*1024,content)
+	    
+            while np.std(transient[cpt_trans][0:400])>10:
+                randompos=int(random()*filesize/1024)
+                fd.seek(1024*(randompos))
+                content=fd.read(1024)
+                transient[cpt_trans]=struct.unpack('B'*1024,content)
+            cpt_trans=cpt_trans+1
+		
+		
+    with open(backfilename,'rb') as fd:
+        
+        for energy in energies:
+            	
+            randompos=int(random()*filesizeback/1024)
+            fd.seek(1024*(randompos))
+            content=fd.read(1024)
+            noise[cpt_noise]=struct.unpack('B'*1024,content)
 
-print('cpt',cpt)
-#data file implementation
-if os.path.isdir(ML_DATA_PATH)==0:
-    pdir=subprocess.Popen('mkdir '+ML_DATA_PATH, shell=True)
-    pdir.wait()
+            while np.std(noise[cpt_noise][0:400])>10:
+                randompos=int(random()*filesizeback/1024)
+                fd.seek(1024*(randompos))
+                content=fd.read(1024)
+                noise[cpt_noise]=struct.unpack('B'*1024,content)
 
 
+            cpt_noise=cpt_noise+1
+	    
+
+    for e in range(len(energies)):
+    
+
+        energy=energies[e]
+        print(energy)
+        necfolders = listdir(SIMU_DATA_PATH+energy+'/voltages/')
+	
+        if necnum[ind][e]>=esize[e]:
+            continue
+
+        
+        #print(necfolders[necnum[ind][e]],necnum[ind][e])        
+        necfolder=SIMU_DATA_PATH+energy+'/voltages/'+necfolders[necnum[ind][e]]
+        txtfile=necfolder+'/a'+str(ID)+'_ew.txt'
+        #print(txtfile)
+        while os.path.isfile(txtfile)==0 and necnum[ind][e]<esize[e]-1:
+            necnum[ind][e]=necnum[ind][e]+1
+            #print(necfolders[necnum[ind][e]],necnum[ind][e])        
+            necfolder=SIMU_DATA_PATH+energy+'/voltages/'+necfolders[necnum[ind][e]]
+            txtfile=necfolder+'/a'+str(ID)+'_ew.txt'
+            #print(txtfile)
+        if os.path.isfile(txtfile)!=0:
+            overthreshold,onlysimu[cpt_sim],simunoise[cpt_sim]=Treatment(txtfile,noise[cpt_sim])
+        
+            while overthreshold==0 and necnum[ind][e]<esize[e]-1:
+                necnum[ind][e]=necnum[ind][e]+1
+                #print(necfolders[necnum[ind][e]],necnum[ind][e])        
+                necfolder=SIMU_DATA_PATH+energy+'/voltages/'+necfolders[necnum[ind][e]]
+                txtfile=necfolder+'/a'+str(ID)+'_ew.txt'
+                #print(txtfile)
+                while os.path.isfile(txtfile)==0 and necnum[ind][e]<esize[e]-1:
+                    necnum[ind][e]=necnum[ind][e]+1
+                    #print(necfolders[necnum[ind][e]],necnum[ind][e])        
+                    necfolder=SIMU_DATA_PATH+energy+'/voltages/'+necfolders[necnum[ind][e]]
+                    txtfile=necfolder+'/a'+str(ID)+'_ew.txt'
+                    #print(txtfile)
+                if os.path.isfile(txtfile)!=0:
+                    overthreshold,onlysimu[cpt_sim],simunoise[cpt_sim]=Treatment(txtfile,noise[cpt_sim])
+            
+
+        necnum[ind][e]=necnum[ind][e]+1
+	
+        if overthreshold!=0:
+	
+            logsim.append(txtfile)          
+            cpt_sim=cpt_sim+1
+	    
+    cpt_noise=cpt_sim
+	    
+
+
+print(cpt_sim,cpt_noise,cpt_trans,necnum)
 
 ############ save to file
 
 
-simuMLfilename=ML_DATA_PATH+'ML'+run+"_A0"+ID+"_simu.bin"
+
+if trace400:
+    simuMLfilename=MLP6SIM400_DATA_PATH+'MLP6SIM400_simu.bin'
+    transientMLfilename=MLP6SIM400_DATA_PATH+'MLP6SIM400_transient.bin'
+    simunoiseMLfilename=MLP6SIM400_DATA_PATH+'MLP6SIM400_simunoise.bin'
+else:
+    simuMLfilename=MLP6SIM_DATA_PATH+'MLP6SIM_simu.bin'
+    transientMLfilename=MLP6SIM_DATA_PATH+'MLP6SIM_transient.bin'
+    simunoiseMLfilename=MLP6SIM_DATA_PATH+'MLP6SIM_simunoise.bin'
+
+#data file implementation
+if os.path.isdir(MLP6SIM400_DATA_PATH)==0:
+    pdir=subprocess.Popen('mkdir '+MLP6SIM400_DATA_PATH, shell=True)
+    pdir.wait()
+
+
+
+
 with open(simuMLfilename,'wb') as fd:
-    for i in range(0,cpt):
+    for i in range(0,cpt_sim):
         for k in range(0,ib):
             content=struct.pack('B',int(onlysimu[i,k]))
             fd.write(content)
-	   
+           
 
-transientMLfilename=ML_DATA_PATH+'ML'+run+"_A0"+ID+"_transient.bin"
+
 with open(transientMLfilename,'wb') as fd:
-    for i in range(0,Ndata*2):
+    for i in range(0,cpt_sim):
         for k in range(0,ib):
             content=struct.pack('B',int(transient[i,k]))
             fd.write(content)
-	    
-	    
-dataMLfilename=ML_DATA_PATH+'ML'+run+"_A0"+ID+"_data.bin"
-with open(dataMLfilename,'wb') as fd:
-    for i in range(0,cpt):
+            
+            
+
+with open(simunoiseMLfilename,'wb') as fd:
+    for i in range(0,cpt_sim):
         for k in range(0,ib):
             content=struct.pack('B',int(simunoise[i,k]))
-            fd.write(content)	    
+            fd.write(content)          
+	      
+            
+with open('logsim.txt','w') as f:
+    for i in range(len(logsim)):
+        f.write(logsim[i]+'\n')
  
 
-	
+        
 ############ check files content
-	
+        
 
 
 with open(simuMLfilename,'rb') as fd:
@@ -496,18 +572,18 @@ with open(simuMLfilename,'rb') as fd:
     content=struct.unpack('B'*len(content),content) #https://docs.python.org/2/library/struct.html
     print(len(content))    
     #size=int(len(content))
-    plt.plot(content)
-    plt.show()
-	
-with open(dataMLfilename,'rb') as fd:
+    #plt.plot(content)
+    #plt.show()
+        
+with open(simunoiseMLfilename,'rb') as fd:
     content=fd.read()
     size=int(len(content)) #8bits data = 1 bytes data
     print(len(content))
     content=struct.unpack('B'*len(content),content) #https://docs.python.org/2/library/struct.html
     print(len(content))    
     #size=int(len(content))
-    plt.plot(content)
-    plt.show()
+    #plt.plot(content)
+    #plt.show()
 
 with open(transientMLfilename,'rb') as fd:
     content=fd.read()
@@ -516,8 +592,8 @@ with open(transientMLfilename,'rb') as fd:
     content=struct.unpack('B'*len(content),content) #https://docs.python.org/2/library/struct.html
     print(len(content))    
     #size=int(len(content))
-    plt.plot(content)
-    plt.show()
+    #plt.plot(content)
+    #plt.show()
     
     
 
