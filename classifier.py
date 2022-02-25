@@ -9,7 +9,6 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import sys
 
-
 import tensorflow as tf
 from tensorflow import keras
 import datetime
@@ -17,14 +16,18 @@ import datetime
 from shared import *
 
 
-
-
 shiftscale=1 # shift and scale of dataset
+FFT=0
+FFTri=0
+FFTalone=1
+if FFT or FFTalone:
+    from scipy.fftpack import rfft, irfft, rfftfreq
+if FFT or FFTalone or FFTri:
+    shiftscale=1   
 showstat=0
 showtrain=0
 basic=0 #train on std,max,maxinstd
 stupidtest=0 #shuffle labels
-
 sizedata=2
 unbalanced=0
 
@@ -118,7 +121,6 @@ for i in range(Ndata):
     input_labels[i]=1
     
 
-
 i=0
 with open(signalMLfilename,'rb') as fd:
     while i<Ndata:
@@ -131,8 +133,6 @@ with open(noiseMLfilename,'rb') as fd:
         input_data[i,:,0]=struct.unpack('B'*ib,content)
         i=i+1
         
-    
-
 
         
 ############ shift and scale of data to perform better
@@ -144,65 +144,38 @@ if shiftscale:
     for i in range(Ndata*sizedata):
         input_data[i,:,0]=input_data[i,:,0]-np.mean(input_data[i,:,0])
         input_data[i,:,0]=input_data[i,:,0]/quantization
-        ind=np.argmax(abs(input_data[i,:,0]))
+        #ind=np.argmax(abs(input_data[i,:,0]))
+        
         
 
-    '''fig,ax=plt.subplots(3, 3)
 
-    ax[0,0].plot(input_data[1])
-    ax[0,2].plot(input_data[100])
-    ax[1,0].plot(input_data[150])
-    ax[1,1].plot(input_data[200])
-    ax[1,2].plot(input_data[250])
-    ax[2,0].plot(input_data[300])
-    ax[2,1].plot(input_data[350])
-    ax[2,2].plot(input_data[400])
-    plt.show()
-    
-    fig,ax=plt.subplots(3, 3)
 
     
-    ax[0,0].plot(input_data[-1])
-    ax[0,1].plot(input_data[-50])
-    ax[0,2].plot(input_data[-100])
-    ax[1,0].plot(input_data[-150])
-    ax[1,1].plot(input_data[-200])
-    ax[1,2].plot(input_data[-250])
-    ax[2,0].plot(input_data[-300])
-    ax[2,1].plot(input_data[-350])
-    ax[2,2].plot(input_data[-400])
-    plt.show()'''
-    
-    #plt.savefig()
-    #plt.savefig('shiftscale.png')
-    #plt.close()
+'''fig,ax=plt.subplots(3, 3)
 
-    
-    '''fig,ax=plt.subplots(3, 3)
+ax[0,0].plot(input_data[0])
+ax[0,1].plot(input_data[1])
+ax[0,2].plot(input_data[2])
+ax[1,0].plot(input_data[3])
+ax[1,1].plot(input_data[4])
+ax[1,2].plot(input_data[5])
+ax[2,0].plot(input_data[6])
+ax[2,1].plot(input_data[7])
+ax[2,2].plot(input_data[8])
+plt.show()
 
-    ax[0,0].plot(input_data[0])
-    ax[0,1].plot(input_data[1])
-    ax[0,2].plot(input_data[2])
-    ax[1,0].plot(input_data[3])
-    ax[1,1].plot(input_data[4])
-    ax[1,2].plot(input_data[5])
-    ax[2,0].plot(input_data[6])
-    ax[2,1].plot(input_data[7])
-    ax[2,2].plot(input_data[8])
-    plt.show()
-    
-    fig,ax=plt.subplots(3, 3)
+fig,ax=plt.subplots(3, 3)
 
-    ax[0,0].plot(input_data[0+Ndata])
-    ax[0,1].plot(input_data[1+Ndata])
-    ax[0,2].plot(input_data[2+Ndata])
-    ax[1,0].plot(input_data[3+Ndata])
-    ax[1,1].plot(input_data[4+Ndata])
-    ax[1,2].plot(input_data[5+Ndata])
-    ax[2,0].plot(input_data[6+Ndata])
-    ax[2,1].plot(input_data[7+Ndata])
-    ax[2,2].plot(input_data[8+Ndata])
-    plt.show()'''
+ax[0,0].plot(input_data[0+Ndata])
+ax[0,1].plot(input_data[1+Ndata])
+ax[0,2].plot(input_data[2+Ndata])
+ax[1,0].plot(input_data[3+Ndata])
+ax[1,1].plot(input_data[4+Ndata])
+ax[1,2].plot(input_data[5+Ndata])
+ax[2,0].plot(input_data[6+Ndata])
+ax[2,1].plot(input_data[7+Ndata])
+ax[2,2].plot(input_data[8+Ndata])
+plt.show()'''
 
 
 ############ histo of dataset        
@@ -376,7 +349,7 @@ print(sum(train_labels))
 
 
 if testonP6 or testonhybrid or trainingP6byevt:
-
+    
     test_data=np.zeros((Ntest*sizedata,ib,1))
     test_labels=np.zeros((Ntest*sizedata))
 
@@ -400,10 +373,9 @@ if testonP6 or testonhybrid or trainingP6byevt:
         for i in range(Ntest*sizedata):
             test_data[i,:,0]=test_data[i,:,0]-np.mean(test_data[i,:,0])
             test_data[i,:,0]=test_data[i,:,0]/quantization
+            
 
-    #plt.plot(test_data[0])
-    #plt.show()
-    
+
     
     '''fig,ax=plt.subplots(3, 3)
 
@@ -429,11 +401,9 @@ if testonP6 or testonhybrid or trainingP6byevt:
 #make unbalanced balanced
 if unbalanced:
 
-
     s_train_data=train_data[train_labels==1]
     n_train_data=train_data[train_labels==0]
     print(len(s_train_data),len(n_train_data))
-
 
     train_data=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise,ib,1))
     train_data[0:sizetrainsignal]=s_train_data
@@ -461,13 +431,9 @@ if unbalanced:
     
     train_labels=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise))
     train_labels[0:(sizedata-1)*sizetrainsignal]=1
-    
-    
-    
-    
+         
     s_test_data=test_data[test_labels==1]
     n_test_data=test_data[test_labels==0]
-
 
     test_data=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise,ib,1))
     test_data[0:sizetestsignal]=s_test_data
@@ -495,12 +461,9 @@ if unbalanced:
      
     test_labels=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise))
     test_labels[0:(sizedata-1)*sizetestsignal]=1    
-    
-
-    
-    print(sizedata,sizetestsignal,sizetestnoise,sum(test_labels))
-    
         
+    print(sizedata,sizetestsignal,sizetestnoise,sum(test_labels))
+            
     ind_list = [i for i in range((sizedata-1)*sizetrainsignal+sizetrainnoise)]
     shuffle(ind_list)
     train_data=train_data[ind_list]
@@ -512,11 +475,47 @@ if unbalanced:
 
 
 
+############ FFT options
 
-    
-    
-    
-    
+#with FFT alone
+if FFTalone:
+    #ib=int(ib/2+1)
+    fourier=np.zeros((Ndata*sizedata,ib,1))
+    for i in range(Ndata*sizedata):
+        fourier[i,:,0]=rfft(train_data[i,:,0])
+        #fourier[i,:,0]=np.real(np.fft.rfft(train_data[i,:,0]))        
+    train_data=fourier
+    fourier=np.zeros((Ntest*sizedata,ib,1))
+    for i in range(Ntest*sizedata):
+        fourier[i,:,0]=rfft(test_data[i,:,0])
+        #fourier[i,:,0]=np.real(np.fft.rfft(test_data[i,:,0]))
+    test_data=fourier    
+
+#with FFT and trace
+if FFT:
+    ibfft=ib
+    ftrain_data=np.zeros((len(train_data),ib,1))
+    for i in range(len(ftrain_data)):
+        ftrain_data[i,:,0]=rfft(train_data[i,:,0])
+    ftest_data=np.zeros((len(test_data),ib,1))
+    for i in range(len(ftest_data)):
+        ftest_data[i,:,0]=rfft(test_data[i,:,0])
+
+#with FFTreal FFTimag and temporal trace        
+if FFTri: 
+    ibfft=int(ib/2+1)
+    rftrain_data=np.zeros((len(train_data),ibfft,1))
+    iftrain_data=np.zeros((len(train_data),ibfft,1))    
+    for i in range(len(train_data)):
+        rftrain_data[i,:,0]=np.real(np.fft.rfft(train_data[i,:,0]))
+        iftrain_data[i,:,0]=np.imag(np.fft.rfft(train_data[i,:,0]))        
+    rftest_data=np.zeros((len(test_data),ibfft,1))
+    iftest_data=np.zeros((len(test_data),ibfft,1))    
+    for i in range(len(test_data)):
+        rftest_data[i,:,0]=np.real(np.fft.rfft(test_data[i,:,0]))
+        iftest_data[i,:,0]=np.imag(np.fft.rfft(test_data[i,:,0]))        
+
+
 
 ############ build model
 
@@ -526,13 +525,15 @@ valmet=[]
 testmet=[]
 #kernels=[ (3,),  (9,), (15,), (21,), (27,), (33,), (39,), (45,), (51,), (57,), (63,), (69,), (75,), (81,), (87,)]
 #filters=[8,16,32]
-kernels=[(9,)]
-filters=[8]
+kernels=[(51,)]
+fkernel=(21,)
+#kernels=[(27,),(31,),(35,),(39,),(43,),(47,),(51,)]
+filters=[16]
 ntry=1
-for t in range(0,ntry):
-    for f in filters:
-        for k in kernels:
 
+for f in filters:
+    for k in kernels:
+        for t in range(0,ntry):
             print(k,f)
 
             if basic:
@@ -549,21 +550,91 @@ for t in range(0,ntry):
             else:
                 regul=0.002
                 drop=0.5
+                #pad='valid'
+                pad='same'
                 #regul=0
-                #drop=0    
-                model = keras.Sequential([
-                  keras.layers.Conv1D(f, k, activation='relu', input_shape=(ib,1), padding='valid',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)), #input shape = x,channel(cannot be none or nothing) ....  timestep,features              
+                #drop=0
+                
+                input1=keras.layers.Input(shape=(ib,1))
+                conv1=keras.layers.Conv1D(f, k, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(input1)
+                maxpool1=keras.layers.MaxPooling1D(2)(conv1)
+                drop1=keras.layers.Dropout(drop)(maxpool1)
+                conv2=keras.layers.Conv1D(2*f, k, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(drop1)
+                maxpool2=keras.layers.MaxPooling1D(2)(conv2)
+                drop2=keras.layers.Dropout(drop)(maxpool2)
+                conv3=keras.layers.Conv1D(2*f, k, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(drop2)
+                flat=keras.layers.Flatten()(conv3)
+                drop3=keras.layers.Dropout(drop)(flat)
+                dense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(drop3)
+
+                
+                if FFT:
+                    finput1=keras.layers.Input(shape=(ibfft,1))
+                    fconv1=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(finput1)
+                    fmaxpool1=keras.layers.MaxPooling1D(2)(fconv1)
+                    fdrop1=keras.layers.Dropout(drop)(fmaxpool1)
+                    fconv2=keras.layers.Conv1D(2*f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(fdrop1)
+                    fmaxpool2=keras.layers.MaxPooling1D(2)(fconv2)
+                    fdrop2=keras.layers.Dropout(drop)(fmaxpool2)
+                    fconv3=keras.layers.Conv1D(2*f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(fdrop2)
+                    fflat=keras.layers.Flatten()(fconv3)
+                    fdrop3=keras.layers.Dropout(drop)(fflat)
+                    fdense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(fdrop3)
+                                
+                    concat=keras.layers.concatenate([dense1, fdense1])
+                    drop4=keras.layers.Dropout(drop)(concat)
+                    dense2=keras.layers.Dense(2, activation='softmax')(drop4)
+                    model=keras.models.Model(inputs=[input1,finput1], outputs=[dense2])
+                    
+                if FFTri:
+                    rfinput1=keras.layers.Input(shape=(ibfft,1))
+                    rfconv1=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfinput1)
+                    rfmaxpool1=keras.layers.MaxPooling1D(2)(rfconv1)
+                    rfdrop1=keras.layers.Dropout(drop)(rfmaxpool1)
+                    rfconv2=keras.layers.Conv1D(2*f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop1)
+                    rfmaxpool2=keras.layers.MaxPooling1D(2)(rfconv2)
+                    rfdrop2=keras.layers.Dropout(drop)(rfmaxpool2)
+                    rfconv3=keras.layers.Conv1D(2*f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop2)
+                    rfflat=keras.layers.Flatten()(rfconv3)
+                    rfdrop3=keras.layers.Dropout(drop)(rfflat)
+                    rfdense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop3)
+                    
+                    ifinput1=keras.layers.Input(shape=(ibfft,1))
+                    ifconv1=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifinput1)
+                    ifmaxpool1=keras.layers.MaxPooling1D(2)(ifconv1)
+                    ifdrop1=keras.layers.Dropout(drop)(ifmaxpool1)
+                    ifconv2=keras.layers.Conv1D(2*f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop1)
+                    ifmaxpool2=keras.layers.MaxPooling1D(2)(ifconv2)
+                    ifdrop2=keras.layers.Dropout(drop)(ifmaxpool2)
+                    ifconv3=keras.layers.Conv1D(2*f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop2)
+                    ifflat=keras.layers.Flatten()(ifconv3)
+                    ifdrop3=keras.layers.Dropout(drop)(ifflat)
+                    ifdense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop3)                    
+                               
+                    concat=keras.layers.concatenate([dense1, rfdense1, ifdense1])
+                    drop4=keras.layers.Dropout(drop)(concat)
+                    dense2=keras.layers.Dense(2, activation='softmax')(drop4)
+                    model=keras.models.Model(inputs=[input1,rfinput1,ifinput1], outputs=[dense2])
+                    
+                if FFT==0 and FFTri==0:
+                
+                    drop4=keras.layers.Dropout(drop)(dense1)
+                    dense2=keras.layers.Dense(2, activation='softmax')(drop4)
+                    model=keras.models.Model(inputs=[input1], outputs=[dense2])
+                   
+                '''model = keras.Sequential([
+                  keras.layers.Conv1D(f, k, activation='relu', input_shape=(ib,1), padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)), #input shape = x,channel(cannot be none or nothing) ....  timestep,features              
                   #keras.layers.BatchNormalization(), #BATCHNORM
                   keras.layers.MaxPooling1D(2),
                   keras.layers.Dropout(drop),
                   #keras.layers.BatchNormalization(), #BATCHNORM
-                  keras.layers.Conv1D(2*f, k, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)),
+                  keras.layers.Conv1D(2*f, k, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)),
                   #keras.layers.BatchNormalization(), #BATCHNORM
                   keras.layers.MaxPooling1D(2),
                   keras.layers.Dropout(drop),
                   #keras.layers.BatchNormalization(), #BATCHNORM
-                  keras.layers.Conv1D(2*f, k, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)),
-                  #keras.layers.BatchNormalization(), #BATCHNORM'''
+                  keras.layers.Conv1D(2*f, k, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul)),
+                  #keras.layers.BatchNormalization(), #BATCHNORM
                   keras.layers.Flatten(),
                   keras.layers.Dropout(drop),
                   #keras.layers.BatchNormalization(), #BATCHNORM
@@ -571,11 +642,9 @@ for t in range(0,ntry):
                   #keras.layers.BatchNormalization(), #BATCHNORM
                   keras.layers.Dropout(drop),
                   #keras.layers.BatchNormalization(), #BATCHNORM
-                  keras.layers.Dense(2,activation='softmax'),
-                  #keras.layers.Softmax()
-                ])
-
-
+                  keras.layers.Dense(2),#,activation='softmax'),
+                  keras.layers.Softmax()
+                ])'''
 
 
 
@@ -597,7 +666,12 @@ for t in range(0,ntry):
 
             EPOCHS = 80
             strt_time = datetime.datetime.now()
-            history = model.fit(train_data, train_labels, epochs=EPOCHS, verbose=1, batch_size=32, validation_split=validintrain)#, callbacks=[callback])
+            if FFT:
+                history = model.fit((train_data, ftrain_data), train_labels, epochs=EPOCHS, verbose=1, batch_size=32, validation_split=validintrain)#, callbacks=[callback])
+            if FFTri:
+                history = model.fit((train_data, rftrain_data, iftrain_data), train_labels, epochs=EPOCHS, verbose=1, batch_size=32, validation_split=validintrain)#, callbacks=[callback])
+            if FFT==0 and FFTri==0:
+                history = model.fit(train_data, train_labels, epochs=EPOCHS, verbose=1, batch_size=32, validation_split=validintrain)#, callbacks=[callback])
             #history = model.fit(basictrain_data, train_labels, epochs=EPOCHS, verbose=1, batch_size=32, validation_split=validintrain)
             curr_time = datetime.datetime.now()
             timedelta = curr_time - strt_time
@@ -605,7 +679,12 @@ for t in range(0,ntry):
             print("DNN training done. Time elapsed: ", timedelta.total_seconds(), "s")
             #print(history.history['val_loss'])
 
-            test_loss, test_met = model.evaluate(test_data, test_labels, verbose=2)
+            if FFT:
+                test_loss, test_met = model.evaluate((test_data,ftest_data), test_labels, verbose=2)
+            if FFTri:
+                test_loss, test_met = model.evaluate((test_data,rftest_data,iftest_data), test_labels, verbose=2)                
+            if FFT==0 and FFTri==0:
+                test_loss, test_met = model.evaluate(test_data, test_labels, verbose=2)
             print('\nMetric:', test_met)
             trainmet.append(history.history['accuracy'][-1])
             valmet.append(history.history['val_accuracy'][-1])
@@ -653,11 +732,15 @@ print(trainmet,valmet,testmet)
 #model = keras.models.load_model('path/to/location')
 
 
-
 ############ predictions
 
-
-predictions = model.predict(test_data)
+if FFT:
+    predictions = model.predict((test_data,ftest_data))
+if FFTri:
+    predictions = model.predict((test_data,rftest_data,iftest_data))
+if FFT==0 and FFTri==0:
+    predictions = model.predict(test_data)
+        
 #maximum=np.argmax(predictions,1)
 #maximum=predictions
 '''for i in range(0,Ndata*2):
@@ -747,7 +830,7 @@ plt.savefig(PBS_PATH+'maxinstd_pred')
 plt.close()
 
 
-if trainingP6 or trainingP6byevt:
+if trainingP6byevt:
 
     coincunique=np.unique(test_coinc)
     coincid=np.zeros(len(test_coinc))
@@ -810,7 +893,7 @@ if trainingP6 or trainingP6byevt:
             
         meanpred[i]=np.mean(pred)
         stdpred[i]=np.std(pred)
-	
+        
     plt.plot(threshold,keepevent/len(coincidunique[1:]),label='Event level' )
     plt.plot(threshold,keepsignal,linestyle='dotted',label='Trace level (dep)', linewidth=2)
     plt.plot(threshold,indep,linestyle='dotted',c='r',label='1-binom.cdf(5,8,trace level) (indep)', linewidth=2)
@@ -839,7 +922,7 @@ if trainingP6 or trainingP6byevt:
 
 
 
-
+############ true/false signal/noise
 
 
 
@@ -930,10 +1013,11 @@ plt.close()
 
 ############ clustering
 
-'''
-model = keras.Model(inputs=model.inputs, outputs=model.layers[-2].output)
+
+'''model = keras.Model(inputs=model.inputs, outputs=model.layers[-2].output)
 predictions = model.predict(input_data[:Ndata])
-print(predictions[0])
+plt.plot(predictions)
+plt.show()
 
 from sklearn.cluster import KMeans
 print("on last hidden")
