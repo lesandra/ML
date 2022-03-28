@@ -16,6 +16,9 @@ import datetime
 from shared import *
 
 
+kfolds=1 #default is 1
+if kfolds>1:
+    ratiotrain=1
 shiftscale=1 # shift and scale of dataset
 FFT=0
 FFTri=0
@@ -28,8 +31,11 @@ showstat=0
 showtrain=0
 basic=0 #train on std,max,maxinstd
 stupidtest=0 #shuffle labels
-sizedata=2
-unbalanced=0
+sizedata=2 
+sizedatatest=2 
+unbalanced=1
+if unbalanced:
+    validintrain=0
 
 
 #training on simu
@@ -44,7 +50,7 @@ if trainingP6:
     Ndata=nP6
     signalMLfilename=MLP6_DATA_PATH+'MLP6_selected'+suffix+'.bin'
     noiseMLfilename=MLP6_DATA_PATH+'MLP6_transient'+suffix+'.bin'
-    load=np.loadtxt(SPS_PATH+'runcoincantevt_space.txt',dtype='int')    
+    load=np.loadtxt(SPS_PATH+'runcoincantevt_space.txt',dtype='int')  #data position is false  
     #load=np.loadtxt(PBS_PATH+'P6all.txt',dtype='int')    
     #run=load[:,0]
     coinc=load[:,1]
@@ -79,7 +85,6 @@ if trainingP6hyb:
     noiseMLfilename=MLP6HYB_DATA_PATH+'MLP6hybrid_transient'+suffix+'.bin'
 
 
-
 if testonP6:
     Ntest=nP6
     ratiotrain=1
@@ -87,8 +92,8 @@ if testonP6:
     testnoiseMLfilename=MLP6_DATA_PATH+'MLP6_transient'+suffix+'.bin'
     
 if testonhybrid:
-    ratiotrain=1
     Ntest=nhyb
+    ratiotrain=1
     testsignalMLfilename=MLHYB_DATA_PATH+'MLhybrid_selected'+suffix+'.bin'
     testnoiseMLfilename=MLHYB_DATA_PATH+'MLhybrid_transient'+suffix+'.bin'
 
@@ -120,7 +125,6 @@ input_labels=np.zeros((Ndata*sizedata,1))
 for i in range(Ndata):
     input_labels[i]=1
     
-
 i=0
 with open(signalMLfilename,'rb') as fd:
     while i<Ndata:
@@ -132,6 +136,22 @@ with open(noiseMLfilename,'rb') as fd:
         content=fd.read(ib)
         input_data[i,:,0]=struct.unpack('B'*ib,content)
         i=i+1
+
+        
+if unbalanced and trainingP6:
+    sizedata=11
+    input_data_toadd=np.zeros((Ndata*(sizedata-2),ib,1))
+    input_labels_toadd=np.zeros((Ndata*(sizedata-2),1))
+    i=0
+    for j in range(2,sizedata):        
+        noiseMLfilename=MLP6_DATA_PATH+'MLP6_transient'+suffix+'_'+str(j)+'.bin'
+        with open(noiseMLfilename,'rb') as fd:
+            while i<Ndata*(j-1):
+                content=fd.read(ib)
+                input_data_toadd[i,:,0]=struct.unpack('B'*ib,content)
+                i=i+1
+    input_data=np.concatenate((input_data,input_data_toadd))
+    input_labels=np.concatenate((input_labels,input_labels_toadd))
         
 
         
@@ -146,9 +166,6 @@ if shiftscale:
         input_data[i,:,0]=input_data[i,:,0]/quantization
         #ind=np.argmax(abs(input_data[i,:,0]))
         
-        
-
-
 
     
 '''fig,ax=plt.subplots(3, 3)
@@ -181,10 +198,10 @@ plt.show()'''
 ############ histo of dataset        
 
 
-
 #simple separations
 signal_data=input_data[0:Ndata,:,0]
 noise_data=input_data[Ndata:Ndata*sizedata,:,0]
+print(np.std(noise_data))
 signal_labels=input_labels[0:Ndata,0]
 noise_labels=input_labels[Ndata:Ndata*sizedata,0]
 print(sum(signal_labels[np.max(abs(signal_data),1)>0.3]))
@@ -257,7 +274,6 @@ plt.close()
 
 
 
-
 #try basic NN with max and std
 if basic:
     ib=3
@@ -269,7 +285,7 @@ if basic:
 
  
         
-############ shuffle dataset
+############ shuffle dataset and train/test split
 
 sizetrain=int(Ndata*ratiotrain)*sizedata
 sizetest=Ndata*sizedata-sizetrain
@@ -333,7 +349,7 @@ if trainingP6:
     test_ant=test_ant[ind_list]
     test_coinc=test_coinc[ind_list]
 
-    print(test_ant,test_coinc,test_labels)
+    #print(test_ant,test_coinc,test_labels)
 
 
 
@@ -348,10 +364,62 @@ if stupidtest:
 print(sum(train_labels))
 
 
+    
+    
+    
+############ make unbalanced balanced
+
+if unbalanced:
+
+    s_train_data=train_data[train_labels==1]
+    n_train_data=train_data[train_labels==0]
+    print(len(s_train_data),len(n_train_data))
+
+    train_data=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise,ib,1))        
+    for i in range(0,sizedata-1):
+        train_data[i*sizetrainsignal:(i+1)*sizetrainsignal]=s_train_data    
+    train_data[(sizedata-1)*sizetrainsignal:]=n_train_data    
+        
+    train_labels=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise))
+    train_labels[0:(sizedata-1)*sizetrainsignal]=1
+
+
+    if sizetest!=0:
+         
+        s_test_data=test_data[test_labels==1]
+        n_test_data=test_data[test_labels==0]
+
+        test_data=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise,ib,1))    
+        for i in range(0,sizedata-1):
+            test_data[i*sizetestsignal:(i+1)*sizetestsignal]=s_test_data
+        test_data[(sizedata-1)*sizetestsignal:]=n_test_data    
+
+        test_labels=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise))
+        test_labels[0:(sizedata-1)*sizetestsignal]=1    
+
+
+
+        print(sizedata,sizetestsignal,sizetestnoise,sum(test_labels))
+
+        ind_list = [i for i in range((sizedata-1)*sizetrainsignal+sizetrainnoise)]
+        shuffle(ind_list)
+        train_data=train_data[ind_list]
+        train_labels=train_labels[ind_list]
+        ind_list = [i for i in range((sizedata-1)*sizetestsignal+sizetestnoise)]
+        shuffle(ind_list)
+        test_data=test_data[ind_list]
+        test_labels=test_labels[ind_list]
+
+
+
+
+
+############ test on a peculiar set
+
 if testonP6 or testonhybrid or trainingP6byevt:
     
-    test_data=np.zeros((Ntest*sizedata,ib,1))
-    test_labels=np.zeros((Ntest*sizedata))
+    test_data=np.zeros((Ntest*sizedatatest,ib,1))
+    test_labels=np.zeros((Ntest*sizedatatest))
 
     for i in range(Ntest):
         test_labels[i]=1
@@ -363,115 +431,17 @@ if testonP6 or testonhybrid or trainingP6byevt:
             test_data[i,:,0]=struct.unpack('B'*ib,content)
             i=i+1
     with open(testnoiseMLfilename,'rb') as fd:
-        while i<Ntest*sizedata:
+        while i<Ntest*sizedatatest:
             content=fd.read(ib)
             test_data[i,:,0]=struct.unpack('B'*ib,content)
             i=i+1
             
             
     if shiftscale:
-        for i in range(Ntest*sizedata):
+        for i in range(Ntest*sizedatatest):
             test_data[i,:,0]=test_data[i,:,0]-np.mean(test_data[i,:,0])
             test_data[i,:,0]=test_data[i,:,0]/quantization
             
-
-
-    
-    '''fig,ax=plt.subplots(3, 3)
-
-    ax[0,0].plot(test_data[0])
-    ax[0,1].plot(test_data[1])
-    ax[0,2].plot(test_data[2])
-    ax[1,0].plot(test_data[3])
-    ax[1,1].plot(test_data[4])
-    ax[1,2].plot(test_data[5])
-    ax[2,0].plot(test_data[6])
-    ax[2,1].plot(test_data[7])
-    ax[2,2].plot(test_data[8])
-    plt.show()'''
-
-
-'''if basic:
-    train_data=train_data[:,:,0]
-    test_data=test_data[:,:,0]'''
-    
-    
-    
-    
-#make unbalanced balanced
-if unbalanced:
-
-    s_train_data=train_data[train_labels==1]
-    n_train_data=train_data[train_labels==0]
-    print(len(s_train_data),len(n_train_data))
-
-    train_data=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise,ib,1))
-    train_data[0:sizetrainsignal]=s_train_data
-    train_data[sizetrainsignal:2*sizetrainsignal]=s_train_data
-    train_data[2*sizetrainsignal:3*sizetrainsignal]=s_train_data
-    train_data[3*sizetrainsignal:4*sizetrainsignal]=s_train_data
-    train_data[3*sizetrainsignal:4*sizetrainsignal]=s_train_data
-    train_data[4*sizetrainsignal:5*sizetrainsignal]=s_train_data
-    train_data[5*sizetrainsignal:6*sizetrainsignal]=s_train_data
-    train_data[6*sizetrainsignal:7*sizetrainsignal]=s_train_data
-    train_data[7*sizetrainsignal:8*sizetrainsignal]=s_train_data
-    train_data[8*sizetrainsignal:9*sizetrainsignal]=s_train_data
-    train_data[9*sizetrainsignal:10*sizetrainsignal]=s_train_data
-    train_data[10*sizetrainsignal:11*sizetrainsignal]=s_train_data
-    train_data[11*sizetrainsignal:12*sizetrainsignal]=s_train_data
-    train_data[12*sizetrainsignal:13*sizetrainsignal]=s_train_data
-    train_data[13*sizetrainsignal:14*sizetrainsignal]=s_train_data
-    train_data[14*sizetrainsignal:15*sizetrainsignal]=s_train_data
-    train_data[15*sizetrainsignal:16*sizetrainsignal]=s_train_data
-    train_data[16*sizetrainsignal:17*sizetrainsignal]=s_train_data
-    train_data[17*sizetrainsignal:18*sizetrainsignal]=s_train_data
-    train_data[18*sizetrainsignal:19*sizetrainsignal]=s_train_data
-    train_data[19*sizetrainsignal:20*sizetrainsignal]=s_train_data    
-    train_data[20*sizetrainsignal:]=n_train_data
-    
-    train_labels=np.zeros(((sizedata-1)*sizetrainsignal+sizetrainnoise))
-    train_labels[0:(sizedata-1)*sizetrainsignal]=1
-         
-    s_test_data=test_data[test_labels==1]
-    n_test_data=test_data[test_labels==0]
-
-    test_data=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise,ib,1))
-    test_data[0:sizetestsignal]=s_test_data
-    test_data[sizetestsignal:2*sizetestsignal]=s_test_data
-    test_data[2*sizetestsignal:3*sizetestsignal]=s_test_data
-    test_data[3*sizetestsignal:4*sizetestsignal]=s_test_data
-    test_data[3*sizetestsignal:4*sizetestsignal]=s_test_data
-    test_data[4*sizetestsignal:5*sizetestsignal]=s_test_data
-    test_data[5*sizetestsignal:6*sizetestsignal]=s_test_data
-    test_data[6*sizetestsignal:7*sizetestsignal]=s_test_data
-    test_data[7*sizetestsignal:8*sizetestsignal]=s_test_data    
-    test_data[8*sizetestsignal:9*sizetestsignal]=s_test_data 
-    test_data[9*sizetestsignal:10*sizetestsignal]=s_test_data
-    test_data[10*sizetestsignal:11*sizetestsignal]=s_test_data
-    test_data[11*sizetestsignal:12*sizetestsignal]=s_test_data
-    test_data[12*sizetestsignal:13*sizetestsignal]=s_test_data
-    test_data[13*sizetestsignal:14*sizetestsignal]=s_test_data
-    test_data[14*sizetestsignal:15*sizetestsignal]=s_test_data
-    test_data[15*sizetestsignal:16*sizetestsignal]=s_test_data
-    test_data[16*sizetestsignal:17*sizetestsignal]=s_test_data
-    test_data[17*sizetestsignal:18*sizetestsignal]=s_test_data
-    test_data[18*sizetestsignal:19*sizetestsignal]=s_test_data
-    test_data[19*sizetestsignal:20*sizetestsignal]=s_test_data   
-    test_data[20*sizetestsignal:]=n_test_data
-     
-    test_labels=np.zeros(((sizedata-1)*sizetestsignal+sizetestnoise))
-    test_labels[0:(sizedata-1)*sizetestsignal]=1    
-        
-    print(sizedata,sizetestsignal,sizetestnoise,sum(test_labels))
-            
-    ind_list = [i for i in range((sizedata-1)*sizetrainsignal+sizetrainnoise)]
-    shuffle(ind_list)
-    train_data=train_data[ind_list]
-    train_labels=train_labels[ind_list]
-    ind_list = [i for i in range((sizedata-1)*sizetestsignal+sizetestnoise)]
-    shuffle(ind_list)
-    test_data=test_data[ind_list]
-    test_labels=test_labels[ind_list]
 
 
 
@@ -480,13 +450,13 @@ if unbalanced:
 #with FFT alone
 if FFTalone:
     #ib=int(ib/2+1)
-    fourier=np.zeros((Ndata*sizedata,ib,1))
-    for i in range(Ndata*sizedata):
+    fourier=np.zeros((len(train_data),ib,1))
+    for i in range(len(train_data)):
         fourier[i,:,0]=rfft(train_data[i,:,0])
         #fourier[i,:,0]=np.real(np.fft.rfft(train_data[i,:,0]))        
     train_data=fourier
-    fourier=np.zeros((Ntest*sizedata,ib,1))
-    for i in range(Ntest*sizedata):
+    fourier=np.zeros((len(test_data),ib,1))
+    for i in range(len(test_data)):
         fourier[i,:,0]=rfft(test_data[i,:,0])
         #fourier[i,:,0]=np.real(np.fft.rfft(test_data[i,:,0]))
     test_data=fourier    
@@ -517,23 +487,73 @@ if FFTri:
 
 
 
+############ cross validation using kfolds (=5 typically), if =1 -> standard train/test split
+
+
+train_n=np.arange(len(train_data))
+kftrain_data=[]
+kftrain_labels=[]
+#kftrain_n=[]
+kftest_data=[]
+kftest_labels=[]
+#kftest_n=[]
+
+if kfolds>1:
+    kfoldsep=int(len(train_data)/kfolds)
+    print(len(train_data),kfolds,kfoldsep)
+    for i in range(kfolds):
+        if len(kftest_data)>0:
+            kftrain_data.append(np.concatenate((np.concatenate(kftest_data),train_data[(i+1)*kfoldsep:kfolds*kfoldsep,:,:])))
+            kftrain_labels.append(np.concatenate((np.concatenate(kftest_labels),train_labels[(i+1)*kfoldsep:kfolds*kfoldsep])))
+        else:
+            kftrain_data.append(train_data[(i+1)*kfoldsep:kfolds*kfoldsep,:,:])
+            kftrain_labels.append(train_labels[(i+1)*kfoldsep:kfolds*kfoldsep])   
+        kftest_data.append(train_data[i*kfoldsep:(i+1)*kfoldsep,:,:])
+        kftest_labels.append(train_labels[i*kfoldsep:(i+1)*kfoldsep])
+
+else:
+    kftest_data.append(test_data)
+    kftest_labels.append(test_labels)
+    kftrain_data.append(train_data)
+    kftrain_labels.append(train_labels)
+
+
+
 ############ build model
 
-print('modelbeg')
 trainmet=[]
 valmet=[]
 testmet=[]
+trainloss=[]
+valloss=[]
+testloss=[]
+
 #kernels=[ (3,),  (9,), (15,), (21,), (27,), (33,), (39,), (45,), (51,), (57,), (63,), (69,), (75,), (81,), (87,)]
 #filters=[8,16,32]
-kernels=[(51,)]
-fkernel=(21,)
-#kernels=[(27,),(31,),(35,),(39,),(43,),(47,),(51,)]
+#kernels=[(11,),(21,),(31,)]
+kernels=[(9,)]
 filters=[16]
-ntry=1
+if FFTalone:
+    kernels=[(51,)]
+    filters=[8]
+fkernel=(51,)
 
-for f in filters:
+ntry=1
+f=filters[0]
+#for f in filters:
+
+for kf in range(kfolds):
+    #del model
+    keras.backend.clear_session()
+
+    train_data=kftrain_data[kf]
+    train_labels=kftrain_labels[kf]
+    test_data=kftest_data[kf]
+    test_labels=kftest_labels[kf] 
+    print(len(train_labels),len(test_labels))
+       
     for k in kernels:
-        for t in range(0,ntry):
+        for t in range(ntry):
             print(k,f)
 
             if basic:
@@ -549,7 +569,8 @@ for f in filters:
 
             else:
                 regul=0.002
-                drop=0.5
+                drop=0.6
+                #fdrop=0.6
                 #pad='valid'
                 pad='same'
                 #regul=0
@@ -588,28 +609,28 @@ for f in filters:
                     
                 if FFTri:
                     rfinput1=keras.layers.Input(shape=(ibfft,1))
-                    rfconv1=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfinput1)
+                    rfconv1=keras.layers.Conv1D(int(f/2), fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfinput1)
                     rfmaxpool1=keras.layers.MaxPooling1D(2)(rfconv1)
                     rfdrop1=keras.layers.Dropout(drop)(rfmaxpool1)
-                    rfconv2=keras.layers.Conv1D(2*f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop1)
+                    rfconv2=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop1)
                     rfmaxpool2=keras.layers.MaxPooling1D(2)(rfconv2)
                     rfdrop2=keras.layers.Dropout(drop)(rfmaxpool2)
-                    rfconv3=keras.layers.Conv1D(2*f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop2)
+                    rfconv3=keras.layers.Conv1D(f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop2)
                     rfflat=keras.layers.Flatten()(rfconv3)
                     rfdrop3=keras.layers.Dropout(drop)(rfflat)
-                    rfdense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop3)
+                    rfdense1=keras.layers.Dense(f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(rfdrop3)
                     
                     ifinput1=keras.layers.Input(shape=(ibfft,1))
-                    ifconv1=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifinput1)
+                    ifconv1=keras.layers.Conv1D(int(f/2), fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifinput1)
                     ifmaxpool1=keras.layers.MaxPooling1D(2)(ifconv1)
                     ifdrop1=keras.layers.Dropout(drop)(ifmaxpool1)
-                    ifconv2=keras.layers.Conv1D(2*f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop1)
+                    ifconv2=keras.layers.Conv1D(f, fkernel, activation='relu', padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop1)
                     ifmaxpool2=keras.layers.MaxPooling1D(2)(ifconv2)
                     ifdrop2=keras.layers.Dropout(drop)(ifmaxpool2)
-                    ifconv3=keras.layers.Conv1D(2*f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop2)
+                    ifconv3=keras.layers.Conv1D(f, fkernel, activation='relu',padding=pad, kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop2)
                     ifflat=keras.layers.Flatten()(ifconv3)
                     ifdrop3=keras.layers.Dropout(drop)(ifflat)
-                    ifdense1=keras.layers.Dense(2*f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop3)                    
+                    ifdense1=keras.layers.Dense(f, activation='relu',kernel_regularizer=keras.regularizers.l2(regul), bias_regularizer=keras.regularizers.l2(regul))(ifdrop3)                    
                                
                     concat=keras.layers.concatenate([dense1, rfdense1, ifdense1])
                     drop4=keras.layers.Dropout(drop)(concat)
@@ -647,7 +668,6 @@ for f in filters:
                 ])'''
 
 
-
             '''optimizer = tf.keras.optimizers.Adam()
             model.compile(loss='mse',
                           optimizer=optimizer,
@@ -657,12 +677,9 @@ for f in filters:
                           optimizer=optimizer,
                           metrics=['accuracy'])
             #callback = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0.01, patience=3)
-
             model.summary()
 
-            print('modelend')
-            print(np.shape(train_data))
-            print(np.shape(train_labels))
+            print(np.shape(train_data),np.shape(train_labels))
 
             EPOCHS = 80
             strt_time = datetime.datetime.now()
@@ -677,7 +694,6 @@ for f in filters:
             timedelta = curr_time - strt_time
             dnn_train_time = timedelta.total_seconds()
             print("DNN training done. Time elapsed: ", timedelta.total_seconds(), "s")
-            #print(history.history['val_loss'])
 
             if FFT:
                 test_loss, test_met = model.evaluate((test_data,ftest_data), test_labels, verbose=2)
@@ -687,13 +703,18 @@ for f in filters:
                 test_loss, test_met = model.evaluate(test_data, test_labels, verbose=2)
             print('\nMetric:', test_met)
             trainmet.append(history.history['accuracy'][-1])
-            valmet.append(history.history['val_accuracy'][-1])
+            trainloss.append(history.history['loss'][-1])
+            if validintrain!=0:
+                valmet.append(history.history['val_accuracy'][-1])
+                valloss.append(history.history['val_loss'][-1])
             testmet.append(test_met)
+            testloss.append(test_loss)
 
 
 
 plt.plot(history.epoch, np.array(history.history['loss']),label = 'loss')
-plt.plot(history.epoch, np.array(history.history['val_loss']),label = 'Val loss')
+if validintrain!=0:
+    plt.plot(history.epoch, np.array(history.history['val_loss']),label = 'Val loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss (cross entropy)')
 plt.legend(labels=['Training set (80%)', 'Validation set (20%)'])
@@ -704,7 +725,8 @@ if showtrain:
     plt.show()
 plt.close()
 plt.plot(history.epoch, np.array(history.history['accuracy']),label = 'accuracy')
-plt.plot(history.epoch, np.array(history.history['val_accuracy']),label = 'Val accuracy')
+if validintrain!=0:
+    plt.plot(history.epoch, np.array(history.history['val_accuracy']),label = 'Val accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend(labels=['Training set (80%)', 'Validation set (20%)'])
@@ -717,13 +739,14 @@ plt.close()
 
 
 
-'''for i in range(0,Ndata*2):
-    train_labels[i]=round(random())
-print(train_labels)
-train_data=train_labels*2
-train_labels[50]=abs(train_labels[50]-1)'''
 
-print(trainmet,valmet,testmet)   
+
+print(trainmet,testmet)  
+print(np.mean(trainmet),np.mean(testmet)) 
+print(np.std(trainmet),np.std(testmet)) 
+print(trainloss,testloss)  
+print(np.mean(trainloss),np.mean(testloss)) 
+print(np.std(trainloss),np.std(testloss)) 
 
 ############ save model
 
@@ -757,6 +780,9 @@ print(maximum)'''
 predlabelsignal=predictions[test_labels==1,1]
 predlabelnoise=predictions[test_labels==0,1]
 
+#if trainingP6byevt:
+#    print(np.ndarray.tolist(predlabelsignal))
+#    print(np.ndarray.tolist(predlabelnoise))
 
 keepsignal=np.zeros(100)
 keepnoise=np.zeros(100)
@@ -791,14 +817,14 @@ plt.show()
 
 
 siz=np.arange(0,len(test_labels[test_labels==0]))
-plt.scatter(siz,predictions[test_labels==0,1],c='tab:orange',alpha=0.8)
+plt.scatter(siz,predictions[test_labels==0,1],c='tab:orange',alpha=0.3)
 
 plt.plot(siz,test_labels[test_labels==0],c='r', linewidth=2)
-plt.plot(siz,np.zeros(len(siz))+np.mean(predictions[test_labels==0,1]),c='tab:orange', linewidth=2, linestyle='dotted')
+plt.plot(siz,np.zeros(len(siz))+np.mean(predictions[test_labels==0,1]),c='tab:red', linewidth=2, linestyle='dotted')
 siz=np.arange(len(test_labels[test_labels==0]),len(test_labels))
-plt.scatter(siz,predictions[test_labels==1,1],c='tab:orange',alpha=0.8)
+plt.scatter(siz,predictions[test_labels==1,1],c='tab:orange',alpha=0.3)
 plt.plot(siz,test_labels[test_labels==1],c='r', linewidth=2)
-plt.plot(siz,np.zeros(len(siz))+np.mean(predictions[test_labels==1,1]),c='tab:orange', linewidth=2, linestyle='dotted')
+plt.plot(siz,np.zeros(len(siz))+np.mean(predictions[test_labels==1,1]),c='tab:red', linewidth=2, linestyle='dotted')
 plt.xlabel('Label-sorted data # (noise=0, signal=1) ')
 plt.ylabel('Prediction probability to be a signal (dots)')
 plt.legend(labels=['Label', 'Averaged prediction'])
@@ -811,7 +837,7 @@ plt.close()
 
 
 
-#stat of predictions
+'''#stat of predictions
 std=np.std(test_data[:,:,:],1)
 maxi=np.max(abs(test_data[:,:,:]),1)
 
@@ -827,7 +853,7 @@ plt.grid()
 plt.xlabel('Maximum [std unit]')
 plt.legend(labels=['Pred as noise', 'Pred as signal'])
 plt.savefig(PBS_PATH+'maxinstd_pred')
-plt.close()
+plt.close()'''
 
 
 if trainingP6byevt:
@@ -878,14 +904,15 @@ if trainingP6byevt:
     indep=np.zeros(100)
     for i in range(100):
         indep[i]=1-(binom.cdf(5,8,keepsignal[i]))
+        
     
     keepevent=np.zeros(100)
     threshold=np.zeros(100)
     coincidunique=np.unique(coincid)
-    meanpred=np.zeros(len(coincidunique))
-    stdpred=np.zeros(len(coincidunique))
+    meanpred=np.zeros(len(coincidunique[1:]))
+    stdpred=np.zeros(len(coincidunique[1:]))
     for i in range(len(coincidunique[1:])):
-        pred=predictions[:,1][coincid==coincidunique[i]]
+        pred=predictions[:,1][coincid==coincidunique[1:][i]]
         for j in range(100):
             threshold[j]=j/100
             if len(pred[pred>=threshold[j]]) >=5:
@@ -909,8 +936,8 @@ if trainingP6byevt:
     print(coincidunique,meanpred,keepevent)
     plt.scatter(coincid[coincid!=0],predictions[:,1][coincid!=0],c='tab:orange',alpha=0.8)
     #plt.errorbar(coincidunique[1:],meanpred[1:],yerr=stdpred[1:],c='r',label='Averaged prediction')
-    plt.plot(coincidunique[1:],meanpred[1:],c='r',label='Averaged prediction')
-    plt.fill_between(coincidunique[1:],meanpred[1:]-stdpred[1:],meanpred[1:]+stdpred[1:],color='tab:red',label='Standard deviation', alpha=0.3)
+    plt.plot(coincidunique[1:],meanpred,c='r',label='Averaged prediction')
+    plt.fill_between(coincidunique[1:],meanpred-stdpred,meanpred+stdpred,color='tab:red',label='Standard deviation', alpha=0.3)
     plt.grid()
     plt.xlabel('Coinc ID')
     plt.ylabel('Prediction probability to be a signal (dots)')
@@ -954,7 +981,8 @@ ax[0,0].plot(falsenoises[0])
 ax[0,1].plot(falsenoises[1])
 ax[0,2].plot(falsenoises[2])
 ax[1,0].plot(falsenoises[3])
-ax[1,1].plot(falsenoises[4])
+if len(falsenoises)>4:
+    ax[1,1].plot(falsenoises[4])
 if len(falsenoises)>5:
     ax[1,2].plot(falsenoises[5])
 if len(falsenoises)>6:
